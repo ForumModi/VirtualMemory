@@ -12,9 +12,13 @@ Forum Modi & AJ Viola
 #include <fcntl.h> 
 #include <wait.h>
 
+/*struct pagetable {
+
+    int isValid = 1;
+
+}*/
 
 void printAddresses(int* address, int size){
-    
     
     for (int i=0; i<size; i++) {
         printf("address[%d] = %d\n", i, address[i]);
@@ -77,6 +81,7 @@ int main(int argc, char** argv) {
     }
 
     while (fscanf(addressFile, "%d", &address[size]) != EOF) {
+        address[size] = address[size] && 0x0000ffff;
         size++;
     }
 
