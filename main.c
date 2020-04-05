@@ -2,7 +2,7 @@
 Project2
 Operating Systems
 Forum Modi & AJ Viola
-4/1/2020
+4/11/2020
 */
 
 #include <stdio.h>
@@ -12,17 +12,28 @@ Forum Modi & AJ Viola
 #include <fcntl.h> 
 #include <wait.h>
 
-/*struct TLB {
-
-    int isValid = 1;
-
-}*/
 
 //creates physical memory size # of pages * pagesize
 int physicalMemory[65536];
 
 //creates pagetable size of # of pages
 int pageTable[256];
+
+//counters for amount of hits and page faults
+int TLB_hits = 0;
+int page_faults = 0;
+
+//TLB struct that holds page number and frame number
+typedef struct TLBentry {
+
+    int page_number;
+    int frame_number; 
+
+}TLBentry;
+
+//creates 16 TLBentries
+struct TLBentry TLB[16];
+
 
 
 //Debugging: prints out address
@@ -34,8 +45,8 @@ void printAddresses(int* address, int size){
 
 }
 
-//outputs PhysicalMemory in out2.txt and outputs value in memory in out3.txt
-void outputPhysicalMemory(int* address, int size) {
+//uses demand paging on physical mem
+void dpagingPhysicalMemory(int* address, int size){
 
     //creates and opens files out2.txt and out3.txt to write to them
     char* filename = "out2.txt";
@@ -45,45 +56,29 @@ void outputPhysicalMemory(int* address, int size) {
     pAddressFile = fopen(filename, "w");
     valueFile = fopen(filename2, "w");
 
+    //creates and opens BACKING_STORE.bin
+    char* bin_filename = "BACKING_STORE.bin";
+    FILE* binFile;
+    binFile = fopen(bin_filename, "rb"); //opens file and reads in binary
+
     //creates pagenum, offset, physicalAddress, and value vars
     unsigned int pagenum;
     unsigned int offset;
     int physicalAddress;
     int value;
 
-    //for the amt of addresses
-    for(int i=0; i<size; i++) {
+    //boolean for if a TLBhit
+    int isTLBhit = 0;
 
-        pagenum = address[i] >> 8; //shifts address to the left by 8 bits to get pagenum
-        offset = address[i] & 0b0000000011111111; //masks first 8 bits to get offset
+    //initializes frame to -1
+    int frame = -1;
 
-        physicalAddress = (pageTable[pagenum]*256) + offset; //physical address is frmae*256 + offset
-        value = physicalMemory[physicalAddress]; //finds the value of index physicalAddress in physicalMemory array
-
-        fprintf(pAddressFile, "%d\n", physicalAddress); //prints physical address to out2.txt
-        fprintf(valueFile,"%d\n", value); //prints value to out3.txt
-    
-    }
-
-}
-
-//generates physicalMemory in an array
-void generatePhysicalMemory(int* address, int size){
-
-    //creates and opens BACKING_STORE.bin
-    char* bin_filename = "BACKING_STORE.bin";
-    FILE* binFile;
-    binFile = fopen(bin_filename, "rb"); //opens file and reads in binary
-
-    //creates pagenum and offset vars
-    unsigned int pagenum;
-    unsigned int offset;
-
-    //initializes frame to 0
-    int frame = 0;
+    int TLB_entry_num = 0;
 
     //for all addresses
     for(int i=0; i<size; i++) {
+
+        isTLBhit = 0;
 
         //gets pagenum and offset
         pagenum = address[i] >> 8;
@@ -92,24 +87,85 @@ void generatePhysicalMemory(int* address, int size){
         //makes buffer size of the frame
         char buf[256];
         
-        //if this address' pagenum has already been filled move to next address
-        if (pageTable[pagenum] > -1) continue;
+        //if this address' pagenum has not been filled, fill it in phys mem
+        if (pageTable[pagenum] == -1) {
+
+            frame++;
             
-        //points to the start of page in file
-        fseek(binFile, (pagenum * 256), SEEK_SET);
+            //points to the start of page in file
+            fseek(binFile, (pagenum * 256), SEEK_SET);
 
-        //reads full page and stores in buf
-        fread(buf, sizeof(char), 256 ,binFile);
+            //reads full page and stores in buf
+            fread(buf, sizeof(char), 256 ,binFile);
 
-        //maps pagenum to specific frame
-        pageTable[pagenum] = frame;
+            //maps pagenum to specific frame
+            pageTable[pagenum] = frame;
 
-        //stores buf in array that holds physical memory
-        for(int ofs=0; ofs<256; ofs++) 
-            physicalMemory[ (frame * 256) + ofs] = buf[ofs];    
+            //stores buf in array that holds physical memory
+            for(int ofs=0; ofs<256; ofs++) 
+                physicalMemory[ (frame * 256) + ofs] = buf[ofs];
+
+            page_faults++;
+
+
+        }    
+
+        //check if in TLB
+        else {
+
+            for (int i=0;i<16;i++) {
+                //if in TLB
+                if (TLB[i].page_number == pagenum) {
+                    
+                    if (TLB[i].page_number == pagenum) printf("%d\n", i);
+                    frame = TLB[i].frame_number;
+                    
+                    //Debugging print statement prints out TLB values
+                    /*printf("TLB hit %d: page:%d\n", TLB_hits, pagenum);
+                    for (int i=0; i<16; i++) {
+                        printf("TLB[%d]: page, %d frame %d \n", i, TLB[i].page_number, TLB[i].frame_number);
+                    }
+                    printf("\n");*/
+                    
+                    isTLBhit = 1;
+                    TLB_hits++;
+                    break;
+                }
+
+            }
+
+        }
+
+        if (!isTLBhit) {
+            
+            //Debugging print statement prints out TLB values
+
+            if (TLB[0].page_number == pagenum) printf("WTF?!\n");
+
+            /*printf("TLB miss: %d\n", pagenum);
+            for (int i=0; i<16; i++) {
+                printf("TLB[%d]: page, %d frame %d \n", i, TLB[i].page_number, TLB[i].frame_number);
+            }
+
+            printf("Entry Num:%d\n", TLB_entry_num);
+            printf("\n");*/
+
+            TLB[TLB_entry_num].page_number = pagenum;
+            TLB[TLB_entry_num].frame_number = pageTable[pagenum];
+            frame = pageTable[pagenum];
+
+            TLB_entry_num = (TLB_entry_num + 1) % 16;
+            
+
+        }
         
-        //increments frame
-        frame++;
+
+        physicalAddress = (frame*256) + offset; //physical address is frame*256 + offset
+        value = physicalMemory[physicalAddress]; //finds the value of index physicalAddress in physicalMemory array
+
+        fprintf(pAddressFile, "%d\n", physicalAddress); //prints physical address to out2.txt
+        fprintf(valueFile,"%d\n", value); //prints value to out3.txt
+
     }
 }
 
@@ -166,6 +222,11 @@ int main(int argc, char** argv) {
         pageTable[i] = -1;
     }
 
+    for (int i=0; i<16; i++) {
+        (TLB[i]).page_number=-1;
+        (TLB[i]).frame_number=-1;
+    }
+
     //debugging method to check if address input is correct
     //printAddresses(address, size);
 
@@ -175,14 +236,16 @@ int main(int argc, char** argv) {
     //calls virtual address (generates out1.txt)
     virtualAddress(address, size);
 
-    //calls generate physical memory, fills physicalmemory array
-    generatePhysicalMemory(address, size);
+    //calls dpagingPhysical Memory to use demand paging on phsycail memory and generate out2.txt and out3.txt
+    dpagingPhysicalMemory(address, size);
+
+    printf("Page Faults: %d / %d = %f\n", page_faults, size, page_faults/ (float)size );
+    printf("TLB hits: %d / %d = %f\n", TLB_hits, size, TLB_hits / (float)size );
     
     //calls output physicalmemory (generates out2.txt and out3.txt)
-    outputPhysicalMemory(address, size);
+    //outputPhysicalMemory(address, size);
 
-    //physical address 
-    unsigned int physicalAddress[1]; //= address[0] & 0x00000ff;
+    
 
 
     
