@@ -12,13 +12,26 @@ Forum Modi & AJ Viola
 #include <fcntl.h> 
 #include <wait.h>
 
+/*
+typedef struct page_info {
+    unsigned int addr_pagenum;
+    int page_table_index;
+} page_info;
+*/
 
+#define PHYS_FRAMES 128
 //creates physical memory size # of pages * pagesize
-int physicalMemory[65536];
+int physicalMemory[256 * PHYS_FRAMES];
 
 //creates pagetable size of # of pages
-int pageTable[128];
+int pageTable[256];
 
+//basically a map for us to see where all of the
+//possible pages in logical space are mapped into
+//the actual page table 
+int all_pages_location[256];
+
+int num_page_faults = 0;
 
 //Debugging: prints out address
 void printAddresses(int* address, int size){
@@ -62,6 +75,40 @@ void outputPhysicalMemory(int* address, int size) {
 
 }
 
+void pageLoad(int address){
+
+    unsigned int pagenum;
+    unsigned int offset;
+
+    pagenum = address >> 8;
+    offset = address & 0x00ff;
+
+    int frame = 0;
+
+    //If the page is already loaded... TODO: how to actually check this lol
+    if (pageTable[pagenum] > -1) {
+        return;
+    }
+
+    char* bin_filename = "BACKING_STORE.bin";
+    FILE* binFile;
+    binFile = fopen(bin_filename, "rb"); //opens file and reads in binary
+
+    //Frame-sized buffer
+    char buf[256];
+    fseek(binFile, (pagenum * 256), SEEK_SET);
+    fread(buf, sizeof(char), 256 ,binFile);
+    
+    //TODO: Find an open page in the table (w/ 128 memory)
+    pageTable[pagenum] = frame;
+
+    for(int ofs=0; ofs<256; ofs++) 
+        physicalMemory[ (frame * 256) + ofs] = buf[ofs];    
+
+    frame = frame + 1 % PHYS_FRAMES;
+    num_faults++;
+
+}
 //generates physicalMemory in an array
 void generatePhysicalMemory(int* address, int size){
 
@@ -156,9 +203,15 @@ int main(int argc, char** argv) {
         size++; //increments size to get amt of addresses
     }
 
+    
     //intializes page table to -1
-    for (int i=0; i<256; i++) {
+    for (int i=0; i<128; i++) {
         pageTable[i] = -1;
+
+    }
+
+    for (int i=0; i<256; i++) {
+        all_pages_location[i] = -1;
     }
 
     //debugging method to check if address input is correct
