@@ -105,18 +105,17 @@ void dpagingPhysicalMemory(int* address, int size){
                     }
                 }
 
-                /*HOW DOES THE TLB WORK IF YOU REMOVE A FRAME FROM MEMORY IF THE TLB
-                WHAT RESPECTS FIFO*/
-
+                //if frame already in TLB fills it will frame's pagenum
                 for (int j=0;j<16;j++) {
+                    
                     if (TLB[j].frame_number == frame) {
-                        TLB[j].frame_number = -1;
-                        TLB[j].page_number = -1;
+                        TLB[j].page_number = pagenum;
+                        isTLBhit = 1;
+                        break;
                     }
                 }
 
             } 
-
 
             //points to the start of page in file
             fseek(binFile, (pagenum * 256), SEEK_SET);
@@ -175,7 +174,7 @@ void dpagingPhysicalMemory(int* address, int size){
             TLB[TLB_entry_num].page_number = pagenum;
             TLB[TLB_entry_num].frame_number = pageTable[pagenum];
             frame = pageTable[pagenum];
-            printf("TLB NUM: %d\n", TLB_entry_num);
+            //printf("TLB NUM: %d\n", TLB_entry_num);
 
             TLB_entry_num = (TLB_entry_num + 1) % 16;
             

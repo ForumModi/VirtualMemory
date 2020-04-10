@@ -117,7 +117,7 @@ void dpagingPhysicalMemory(int* address, int size){
                 //if in TLB
                 if (TLB[i].page_number == pagenum) {
                     
-                    if (TLB[i].page_number == pagenum) printf("%d\n", i);
+                    //if (TLB[i].page_number == pagenum) printf("%d\n", i);
                     frame = TLB[i].frame_number;
                     
                     //Debugging print statement prints out TLB values
@@ -139,8 +139,6 @@ void dpagingPhysicalMemory(int* address, int size){
         if (!isTLBhit) {
             
             //Debugging print statement prints out TLB values
-
-            if (TLB[0].page_number == pagenum) printf("WTF?!\n");
 
             /*printf("TLB miss: %d\n", pagenum);
             for (int i=0; i<16; i++) {
@@ -244,10 +242,5 @@ int main(int argc, char** argv) {
     
     //calls output physicalmemory (generates out2.txt and out3.txt)
     //outputPhysicalMemory(address, size);
-
-    
-
-
-    
 
 }
