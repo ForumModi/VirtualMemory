@@ -1,4 +1,5 @@
-A program for simulating basic virtual memory, using pure demand paging.
+# VirtualMemory
+A program for simulating basic virtual memory, using pure demand paging. Completed for CSC 345 - Operating Systems in Spring 2020. 
 
 - `BACKING_STORE.bin` : file of binary values; can be read using 
 `xxd -b BACKING_STORE.bin | less` which displays 10k lines of 6 bytes each, for our total of 65,536 bytes.
